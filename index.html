@@ -801,12 +801,18 @@ async function loadData() {
       throw new Error(`${r.status}: ${e.message}`);
     }
     const d = await r.json();
-    const raw = d.files[GIST_FILE]?.content || '{"artigos":{}}';
-    const parsed = JSON.parse(raw);
-    // Suporta tanto o formato legado (array) quanto o novo (objeto indexado por id)
-    const artigosRaw = parsed.artigos || {};
-    S.artigos    = Array.isArray(artigosRaw) ? artigosRaw : Object.values(artigosRaw);
-    S.driveLinks = parsed.driveLinks || {};
+    const meta = JSON.parse(d.files[GIST_FILE]?.content || '{}');
+    S.driveLinks = meta.driveLinks || {};
+    // Novo formato: um arquivo artigo-{id}.json por artigo
+    const artigoFiles = Object.entries(d.files)
+      .filter(([n]) => n.startsWith('artigo-') && n.endsWith('.json'));
+    if (artigoFiles.length > 0) {
+      S.artigos = artigoFiles.map(([, f]) => JSON.parse(f.content));
+    } else {
+      // Legado: artigos dentro do arquivo principal (array ou objeto)
+      const raw = meta.artigos || {};
+      S.artigos = Array.isArray(raw) ? raw : Object.values(raw);
+    }
     S.lastSync = new Date();
     setStatus('ok', 'Gist conectado');
     refreshAll();
@@ -819,17 +825,27 @@ async function loadData() {
   loader(false);
 }
 
-async function pushGist() {
+// articleId → só atualiza aquele artigo. deletedId → remove o arquivo do gist.
+// Sem args → só atualiza driveLinks (para saveModalDrive).
+async function pushGist({ articleId = null, deletedId = null } = {}) {
   loader(true);
   try {
-    // Serializa artigos como objeto indexado por id — assim cada artigo ocupa uma chave
-    // própria no JSON e o diff do gist só mostra o artigo que realmente mudou.
-    const artigosObj = Object.fromEntries(S.artigos.map(a => [a.id, a]));
-    const payload = JSON.stringify({ artigos: artigosObj, driveLinks: S.driveLinks }, null, 2);
+    const files = {
+      [GIST_FILE]: { content: JSON.stringify({ driveLinks: S.driveLinks }, null, 2) }
+    };
+    if (deletedId) {
+      files[`artigo-${deletedId}.json`] = null;
+    } else if (articleId) {
+      const art = S.artigos.find(a => a.id === articleId);
+      if (art) files[`artigo-${art.id}.json`] = { content: JSON.stringify(art, null, 2) };
+    } else {
+      // Sync completo (primeiro uso / migração)
+      S.artigos.forEach(a => { files[`artigo-${a.id}.json`] = { content: JSON.stringify(a, null, 2) }; });
+    }
     const r = await fetch(GIST_API(), {
       method  : 'PATCH',
       headers : GH_H(),
-      body    : JSON.stringify({ files: { [GIST_FILE]: { content: payload } } }),
+      body    : JSON.stringify({ files }),
     });
     if (!r.ok) {
       const e = await r.json();
@@ -989,7 +1005,7 @@ async function saveArticleInternal() {
     } else { S.artigos.push(art); }
   }
 
-  const ok = await pushGist();
+  const ok = await pushGist({ articleId: art.id });
   if (ok) {
     toast(`"${artAss}" salvo!`, 'ok');
     cancelEdit();
@@ -1076,7 +1092,7 @@ async function doConfirmClear() {
 
   if (existing) {
     S.artigos = S.artigos.filter(a => a.id !== existing.id);
-    const ok = await pushGist();
+    const ok = await pushGist({ deletedId: existing.id });
     if (ok) { toast(`"${existing.assunto}" removido.`, 'inf'); refreshAll(); }
   }
 
@@ -1088,7 +1104,7 @@ function openNewForm() { clearForm(); populateSelect(); goTo('form'); }
 async function deleteArticle(id) {
   if (!confirm('Excluir este artigo?')) return;
   S.artigos = S.artigos.filter(a => a.id !== id);
-  const ok = await pushGist();
+  const ok = await pushGist({ deletedId: id });
   if (ok) { toast('Artigo excluído.', 'inf'); refreshAll(); }
 }
 
@@ -1249,7 +1265,7 @@ async function saveDrive(id) {
   const inp = document.getElementById(`drv-${id}`);
   if (!inp) return;
   S.artigos = S.artigos.map(a => a.id === id ? {...a, linkDrive: inp.value.trim()} : a);
-  const ok = await pushGist();
+  const ok = await pushGist({ articleId: id });
   if (ok) toast('Link do Drive salvo!', 'ok');
 }
 
@@ -1393,13 +1409,13 @@ function renderProducao() {
 
 async function markProducao(id) {
   S.artigos = S.artigos.map(a => a.id === id ? {...a, status: 'producao'} : a);
-  const ok = await pushGist();
+  const ok = await pushGist({ articleId: id });
   if (ok) { toast('Artigo marcado como Produção! 🚀', 'ok'); refreshAll(); }
 }
 
 async function revertHomolog(id) {
   S.artigos = S.artigos.map(a => a.id === id ? {...a, status: 'homologacao'} : a);
-  const ok = await pushGist();
+  const ok = await pushGist({ articleId: id });
   if (ok) { toast('Artigo revertido para Homologação.', 'inf'); refreshAll(); }
 }
 
