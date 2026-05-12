@@ -657,7 +657,7 @@
       </div>
     </div>
     <div class="modal-mb">
-      <p style="font-size:13.5px;color:var(--muted);margin-bottom:20px">Todos os dados preenchidos serão apagados. Esta ação não pode ser desfeita.</p>
+      <p id="confirmClearMsg" style="font-size:13.5px;color:var(--muted);margin-bottom:20px">Todos os dados preenchidos serão apagados. Esta ação não pode ser desfeita.</p>
       <div style="display:flex;gap:10px;justify-content:flex-end">
         <button class="btn btn-outline" onclick="closeConfirmClear()">Cancelar</button>
         <button class="btn btn-danger" onclick="doConfirmClear()">Sim, limpar</button>
@@ -1046,14 +1046,35 @@ function clearForm() {
 }
 
 function confirmClearForm() {
+  const tv  = document.getElementById('fAss').value;
+  const existing = S.editId
+    ? S.artigos.find(a => a.id === S.editId)
+    : (tv && tv !== 'custom' ? S.artigos.find(a => a.top == tv) : null);
+
+  const msg = existing
+    ? `O artigo "<strong>${existing.assunto}</strong>" será removido permanentemente do banco de dados. Esta ação não pode ser desfeita.`
+    : 'Todos os dados preenchidos serão apagados. Esta ação não pode ser desfeita.';
+  document.getElementById('confirmClearMsg').innerHTML = msg;
   document.getElementById('confirmClearModal').classList.add('open');
 }
 function closeConfirmClear(e) {
   if (e && e.target !== document.getElementById('confirmClearModal')) return;
   document.getElementById('confirmClearModal').classList.remove('open');
 }
-function doConfirmClear() {
+async function doConfirmClear() {
   document.getElementById('confirmClearModal').classList.remove('open');
+
+  const tv  = document.getElementById('fAss').value;
+  const existing = S.editId
+    ? S.artigos.find(a => a.id === S.editId)
+    : (tv && tv !== 'custom' ? S.artigos.find(a => a.top == tv) : null);
+
+  if (existing) {
+    S.artigos = S.artigos.filter(a => a.id !== existing.id);
+    const ok = await pushGist();
+    if (ok) { toast(`"${existing.assunto}" removido.`, 'inf'); refreshAll(); }
+  }
+
   clearForm();
 }
 
