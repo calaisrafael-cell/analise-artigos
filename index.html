@@ -461,7 +461,7 @@
         <div class="form-actions">
           <button class="btn btn-primary" id="btnSave" onclick="saveArticle()">Salvar Artigo</button>
           <button class="btn btn-outline" id="btnSaveNext" onclick="saveAndNext()" style="border-color:var(--primary);color:var(--primary)">Salvar e ir para o próximo</button>
-          <button class="btn btn-outline" onclick="clearForm()">Limpar</button>
+          <button class="btn btn-outline" onclick="confirmClearForm()">Limpar</button>
           <span class="editing-lbl" id="editLbl" style="display:none">✏️ Editando — <a onclick="cancelEdit()">cancelar</a></span>
         </div>
       </div>
@@ -642,6 +642,25 @@
       <div style="display:flex;gap:10px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border)">
         <button class="btn btn-primary" id="btnInsertCaixa" onclick="insertCaixaHtml()">Inserir no artigo</button>
         <button class="btn btn-outline" onclick="closeCaixaModal()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM CLEAR MODAL -->
+<div class="modal-ov" id="confirmClearModal" onclick="closeConfirmClear(event)">
+  <div class="modal-box" style="max-width:400px">
+    <div class="modal-mh">
+      <div>
+        <div class="m-badge">Atenção</div>
+        <h3>Limpar formulário?</h3>
+      </div>
+    </div>
+    <div class="modal-mb">
+      <p style="font-size:13.5px;color:var(--muted);margin-bottom:20px">Todos os dados preenchidos serão apagados. Esta ação não pode ser desfeita.</p>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn btn-outline" onclick="closeConfirmClear()">Cancelar</button>
+        <button class="btn btn-danger" onclick="doConfirmClear()">Sim, limpar</button>
       </div>
     </div>
   </div>
@@ -1024,6 +1043,18 @@ function clearForm() {
   document.getElementById('fBadge').textContent = '#—';
   document.getElementById('fTitle').textContent = 'Selecione um tópico';
   cancelEdit();
+}
+
+function confirmClearForm() {
+  document.getElementById('confirmClearModal').classList.add('open');
+}
+function closeConfirmClear(e) {
+  if (e && e.target !== document.getElementById('confirmClearModal')) return;
+  document.getElementById('confirmClearModal').classList.remove('open');
+}
+function doConfirmClear() {
+  document.getElementById('confirmClearModal').classList.remove('open');
+  clearForm();
 }
 
 function openNewForm() { clearForm(); populateSelect(); goTo('form'); }
