@@ -1039,7 +1039,7 @@ function clearForm() {
   document.getElementById('fCustomTopicWrap').style.display = 'none';
   document.getElementById('linksList').innerHTML = '';
   S.lc = 0;
-  S.quill.root.innerHTML = '';
+  S.quill.setContents([]);
   document.getElementById('fBadge').textContent = '#—';
   document.getElementById('fTitle').textContent = 'Selecione um tópico';
   cancelEdit();
